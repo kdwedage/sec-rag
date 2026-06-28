@@ -3,8 +3,8 @@
 # Cohere model identifiers
 EMBED_MODEL = "embed-english-v3.0"
 RERANK_MODEL = "rerank-english-v3.0"
-GENERATION_MODEL = "command-r-plus"
-JUDGE_MODEL = "command-r-plus"
+GENERATION_MODEL = "command-r-plus-08-2024"
+JUDGE_MODEL = "command-r-plus-08-2024"
 
 # Chunking
 TARGET_CHUNK_TOKENS = 400

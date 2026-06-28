@@ -24,43 +24,96 @@ logger = logging.getLogger(__name__)
 # Section boundary patterns
 # ---------------------------------------------------------------------------
 
-# Matches "Item 1", "Item 1A", "Item 7", "Item 7A", "Item 8" etc.
-# Tolerates extra whitespace, all-caps variants, and optional periods.
+# Matches actual section headers in the filing body (not TOC entries).
+#
+# After stripping HTML, the filing body has headers like:
+#   \n Item 7.    Management's Discussion and Analysis ... \n
+# while TOC entries look like:
+#   \n Item 7. \n\n Management's Discussion...
+#
+# The discriminator: the title appears on the SAME line as the item label in
+# the body. Requiring at least one non-space character after the label+spaces
+# skips the TOC-only lines.
 _SECTION_PATTERN = re.compile(
-    r"(?:^|\n)\s*"
-    r"(Item\s+\d+[A-Z]?\.?)"
-    r"[\.\s—–\-:]+",
-    re.IGNORECASE | re.MULTILINE,
+    r"\n[ \t]*(Item[ \t]+\d+[A-Z]?\.)[ \t]+([A-Z’‘][^\n]+)\n",
+    re.IGNORECASE,
 )
 
 # HTML/XBRL noise to strip
+_BLOCK_TAG = re.compile(
+    r"<(?:p|div|br|h[1-6]|li|tr|td|th|section|article|header|footer|table)[^>]*>",
+    re.IGNORECASE,
+)
 _HTML_TAG = re.compile(r"<[^>]+>", re.DOTALL)
 _XML_DECL = re.compile(r"<\?xml[^>]+\?>", re.DOTALL)
 _MULTI_SPACE = re.compile(r"[ \t]+")
 _MULTI_NEWLINE = re.compile(r"\n{3,}")
+
+# SGML envelope patterns for the full-submission.txt format
+_SGML_DOCUMENT = re.compile(r"<DOCUMENT>(.*?)</DOCUMENT>", re.DOTALL | re.IGNORECASE)
+_SGML_TYPE = re.compile(r"<TYPE>\s*10-K\b", re.IGNORECASE)
+_SGML_TEXT = re.compile(r"<TEXT>(.*?)</TEXT>", re.DOTALL | re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
 # Text cleaning
 # ---------------------------------------------------------------------------
 
+def _extract_primary_document(raw: str) -> str:
+    """
+    Pull the primary 10-K HTML/text body from an SEC full-submission.txt file.
+
+    Full submissions are SGML envelopes containing multiple <DOCUMENT> blocks.
+    The first <TYPE>10-K block is the filing body; everything else is exhibits.
+    Falls back to the full raw text if the SGML structure is absent.
+    """
+    for doc_match in _SGML_DOCUMENT.finditer(raw):
+        doc_body = doc_match.group(1)
+        if _SGML_TYPE.search(doc_body[:500]):
+            text_match = _SGML_TEXT.search(doc_body)
+            if text_match:
+                return text_match.group(1)
+    return raw  # plain .htm / .txt filing without SGML wrapper
+
+
 def _strip_boilerplate(raw: str) -> str:
-    """Remove HTML tags, XBRL markup, and excess whitespace from a raw filing."""
-    text = _XML_DECL.sub("", raw)
+    """
+    Extract the primary 10-K body, strip HTML/XBRL markup, and normalise whitespace.
+
+    Block-level elements are replaced with newlines (not spaces) so that section
+    headers that live inside <p>/<div> tags survive as newline-delimited lines.
+    """
+    text = _extract_primary_document(raw)
+    text = _XML_DECL.sub("", text)
+    # Block-level tags → newline to preserve text structure
+    text = _BLOCK_TAG.sub("\n", text)
+    # Remaining inline tags → space
     text = _HTML_TAG.sub(" ", text)
-    # Decode common HTML entities
+    # Decode common HTML entities (numeric and named)
+    text = re.sub(r"&#\d+;", lambda m: _decode_numeric_entity(m.group()), text)
     text = (
         text.replace("&amp;", "&")
         .replace("&lt;", "<")
         .replace("&gt;", ">")
         .replace("&nbsp;", " ")
-        .replace("&#160;", " ")
         .replace("&apos;", "'")
         .replace("&quot;", '"')
     )
+    # Normalize non-breaking spaces to regular spaces so section headers
+    # (which use \xa0 as padding between item number and title) can be matched.
+    text = text.replace("\xa0", " ")
     text = _MULTI_SPACE.sub(" ", text)
     text = _MULTI_NEWLINE.sub("\n\n", text)
     return text.strip()
+
+
+def _decode_numeric_entity(entity: str) -> str:
+    """Convert &#NNN; HTML numeric entities to their Unicode characters."""
+    try:
+        n = int(entity[2:-1])
+        return chr(n)
+    except (ValueError, OverflowError):
+        return " "
 
 
 # ---------------------------------------------------------------------------
@@ -80,18 +133,17 @@ def _split_into_sections(text: str) -> dict[str, str]:
 
     sections: dict[str, str] = {}
     for i, match in enumerate(matches):
+        # group(1) = "Item 7." — strip trailing period and normalise spacing
         label_raw = match.group(1).strip().rstrip(".")
-        # Normalise: "ITEM  1A" → "Item 1A"
         label = re.sub(r"\s+", " ", label_raw).title()
-        # Replace "Item  1A" → "Item 1A" (extra space between word and number)
-        label = re.sub(r"Item\s+", "Item ", label)
 
         start = match.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         body = text[start:end].strip()
 
-        # Keep first occurrence of each section (filings repeat TOC entries)
-        if label not in sections:
+        # Keep the longest occurrence — body sections are much larger than TOC stubs
+        existing = sections.get(label, "")
+        if len(body) > len(existing):
             sections[label] = body
 
     # Filter to relevant sections
@@ -241,7 +293,7 @@ def ingest(ticker: str, years: list[int], data_dir: str = "sec_data") -> list[di
 
     Retries with exponential back-off on SEC EDGAR rate-limit errors.
     """
-    dl = Downloader(company_name="SecRagPipeline", email_address="user@example.com", save_path=data_dir)
+    dl = Downloader(company_name="SecRagPipeline", email_address="user@example.com", download_folder=data_dir)
     all_chunks: list[dict] = []
 
     for year in years:
@@ -287,7 +339,7 @@ def _download_with_retry(dl: Downloader, ticker: str, year: int) -> Optional[str
             )
 
             # Locate the downloaded files on disk
-            filing_root = Path(dl.save_path) / "sec-edgar-filings" / ticker / "10-K"
+            filing_root = Path(dl.download_folder) / "sec-edgar-filings" / ticker / "10-K"
             if not filing_root.exists():
                 logger.warning("Filing root not found: %s", filing_root)
                 return None
