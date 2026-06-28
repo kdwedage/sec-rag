@@ -1,0 +1,49 @@
+{
+  "questions": [
+    {
+      "id": "q1",
+      "ticker": "AAPL",
+      "filing_year": 2023,
+      "question": "PLACEHOLDER",
+      "expected_answer": "PLACEHOLDER",
+      "source_section": "Item 7",
+      "source_passage": "PLACEHOLDER"
+    },
+    {
+      "id": "q2",
+      "ticker": "AAPL",
+      "filing_year": 2023,
+      "question": "PLACEHOLDER",
+      "expected_answer": "PLACEHOLDER",
+      "source_section": "Item 1A",
+      "source_passage": "PLACEHOLDER"
+    },
+    {
+      "id": "q3",
+      "ticker": "AAPL",
+      "filing_year": 2022,
+      "question": "PLACEHOLDER",
+      "expected_answer": "PLACEHOLDER",
+      "source_section": "Item 7",
+      "source_passage": "PLACEHOLDER"
+    },
+    {
+      "id": "q4",
+      "ticker": "AAPL",
+      "filing_year": 2023,
+      "question": "PLACEHOLDER",
+      "expected_answer": "PLACEHOLDER",
+      "source_section": "Item 8",
+      "source_passage": "PLACEHOLDER"
+    },
+    {
+      "id": "q5",
+      "ticker": "AAPL",
+      "filing_year": 2022,
+      "question": "PLACEHOLDER",
+      "expected_answer": "PLACEHOLDER",
+      "source_section": "Item 1",
+      "source_passage": "PLACEHOLDER"
+    }
+  ]
+}
