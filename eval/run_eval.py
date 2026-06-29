@@ -82,6 +82,10 @@ def _get_cohere_client() -> cohere.Client:
 # Scoring helpers
 # ---------------------------------------------------------------------------
 
+def _normalize_quotes(text: str) -> str:
+    return text.replace("‘", "'").replace("’", "'")
+
+
 def score_retrieval_precision(
     chunks: list[dict], source_passage: str
 ) -> float:
@@ -91,9 +95,9 @@ def score_retrieval_precision(
     """
     if source_passage in ("PLACEHOLDER", "", None):
         return -1.0  # sentinel: question not yet filled in
-    needle = source_passage.strip().lower()
+    needle = _normalize_quotes(source_passage.strip().lower())
     for chunk in chunks:
-        if needle in chunk.get("text", "").lower():
+        if needle in _normalize_quotes(chunk.get("text", "").lower()):
             return 1.0
     return 0.0
 

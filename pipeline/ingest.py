@@ -344,12 +344,19 @@ def _download_with_retry(dl: Downloader, ticker: str, year: int) -> Optional[str
                 logger.warning("Filing root not found: %s", filing_root)
                 return None
 
-            # Find the most recently created subfolder (= newest download)
-            subdirs = sorted(filing_root.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+            subdirs = list(filing_root.iterdir())
             if not subdirs:
                 return None
 
-            raw = _find_filing_text(subdirs[0])
+            # Prefer the subfolder whose accession number contains the 2-digit
+            # fiscal year (e.g. "-23-" for 2023). Falls back to mtime sort only
+            # when no accession number matches, avoiding the bug where a later
+            # download's mtime shadows an earlier year's subfolder.
+            yr2 = str(year)[-2:]
+            year_matches = [p for p in subdirs if f"-{yr2}-" in p.name]
+            target = year_matches[0] if year_matches else max(subdirs, key=lambda p: p.stat().st_mtime)
+
+            raw = _find_filing_text(target)
             return raw
 
         except Exception as exc:

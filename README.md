@@ -149,20 +149,20 @@ The harness prints a per-question table and aggregate metrics, then saves a time
 
 | ID | Question (truncated) | Precision@5 | Factual | Faithful | Uncertainty |
 |----|----------------------|:-----------:|:-------:|:--------:|:-----------:|
-| q1 | Gross margin % FY2023 and drivers | 0.0 | 5 | 5 | 5 |
-| q2 | Manufacturing concentration risk | 0.0 | 5 | 5 | 5 |
-| q3 | Net sales growth FY2022 vs FY2021 | 0.0 | 1 | 5 | 5 |
-| q4 | Deferred revenue FY2023 | 0.0 | 5 | 5 | 5 |
-| q5 | Competitive landscape FY2022 | 0.0 | 5 | 5 | 5 |
-| **Mean** | | **0.000** | **4.2 / 5** | **5.0 / 5** | **5.0 / 5** |
+| q1 | Gross margin % FY2023 and drivers | 0.0 | 1 | 5 | 5 |
+| q2 | Manufacturing concentration risk | 1.0 | 5 | 5 | 5 |
+| q3 | Net sales growth FY2022 vs FY2021 | 1.0 | 5 | 5 | 5 |
+| q4 | Deferred revenue FY2023 | 1.0 | 5 | 5 | 5 |
+| q5 | Competitive landscape FY2022 | 1.0 | 5 | 5 | 5 |
+| **Mean** | | **0.800** | **4.2 / 5** | **5.0 / 5** | **5.0 / 5** |
 
-**Precision@5 = 0.0** is caused by two compounding bugs, both tracked in [What I'd improve](#what-id-improve):
+Two bugs were identified and fixed during analysis (see [What I'd improve](#what-id-improve)), raising Precision@5 from 0.0 to 0.8:
 
-1. **Ingestion mtime bug** — `_download_with_retry` selects the most recently modified subfolder under the filing root. When all three years are ingested in a single run, later downloads touch sibling folder mtimes, causing some years to ingest the wrong filing entirely. Simulation confirms that fixing this alone would raise Precision@5 to ~0.6 (q1, q3, q4 would pass).
+1. **Ingestion mtime bug** — `_download_with_retry` selected the most recently modified subfolder under the filing root. When all years are ingested in one run, later downloads touch sibling folder mtimes, causing earlier years to ingest the wrong filing. Fixed by matching the subfolder accession number to the requested fiscal year.
 
-2. **Apostrophe encoding mismatch** — SEC filings use curly right-single-quotes (`'` U+2019) for possessives. The `source_passage` strings in `golden_dataset.json` were written with straight apostrophes (`'` U+0027), so substring match fails for any passage containing `Company's`, `Apple's`, etc. even when the correct filing is indexed. Fixing both bugs together would bring Precision@5 to 1.0.
+2. **Apostrophe encoding mismatch** — SEC filings use curly right-single-quotes (`'` U+2019) for possessives; `source_passage` strings used straight apostrophes (`'` U+0027), causing substring match to fail for passages containing `Company's` etc. Fixed by normalising both needle and haystack before comparison in `score_retrieval_precision`.
 
-Despite Precision@5 = 0.0, the LLM judge scores confirm the pipeline is retrieving semantically relevant context and generating faithful, well-calibrated answers — the retriever surfaces correct passages even when year metadata is misaligned.
+**q1 (Precision@5 = 0.0)** remains a retrieval ordering issue: the specific gross margin narrative chunk from FY2023 Item 7 does not rank in the top 5 for this query, causing the model to correctly defer with "cannot determine." This is a genuine retrieval gap rather than a data or scoring bug, and is addressed by the hybrid retrieval improvement below.
 
 ---
 
@@ -188,9 +188,9 @@ Human evaluation doesn't scale, and simple n-gram metrics (BLEU, ROUGE) miss sem
 
 ## What I'd improve
 
-1. **Filing subfolder selection in ingestion.** `_download_with_retry` picks the most recently modified subfolder under the filing root, which breaks when multiple years are ingested in one run — later downloads update sibling folder mtimes and cause earlier years to ingest the wrong filing. Fix: use the accession number returned by the downloader, or sort subfolders by name (accession numbers are lexicographically ordered by date) rather than mtime.
+1. ~~**Filing subfolder selection in ingestion.**~~ ✅ Fixed — `_download_with_retry` previously picked the most recently modified subfolder, causing earlier years to ingest the wrong filing when multiple years were ingested in one run. Now matches the subfolder accession number to the requested fiscal year.
 
-2. **Apostrophe normalisation in eval.** SEC filings use curly right-single-quotes (U+2019) for possessives, but `source_passage` strings in the golden dataset use straight apostrophes (U+0027). The Precision@5 substring match fails for any passage containing words like `Company's`. Fix: normalise both needle and haystack to straight apostrophes before comparing, or copy `source_passage` values directly from stored chunk text.
+2. ~~**Apostrophe normalisation in eval.**~~ ✅ Fixed — SEC filings use curly right-single-quotes (U+2019); `source_passage` strings used straight apostrophes (U+0027), silently breaking Precision@5 substring match. `score_retrieval_precision` now normalises both strings before comparing.
 
 3. **Metadata-filtered retrieval.** Currently a multi-year query searches across all years indiscriminately. Adding a `where={"filing_year": {"$in": [2022, 2023]}}` filter to the ChromaDB query would let the user ask year-specific questions without the retriever surfacing answers from the wrong period.
 
