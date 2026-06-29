@@ -4,46 +4,46 @@
       "id": "q1",
       "ticker": "AAPL",
       "filing_year": 2023,
-      "question": "PLACEHOLDER",
-      "expected_answer": "PLACEHOLDER",
+      "question": "What was Apple's total gross margin percentage in FY2023, and what drove the year-over-year change?",
+      "expected_answer": "Apple's total gross margin percentage was 44.1% in FY2023, up from 43.3% in FY2022. Products gross margin percentage increased due to cost savings and a different product mix, partially offset by foreign currency weakness and decreased leverage. Services gross margin percentage decreased due to higher Services costs and foreign currency weakness, partially offset by a different Services mix.",
       "source_section": "Item 7",
-      "source_passage": "PLACEHOLDER"
+      "source_passage": "Products gross margin percentage increased during 2023 compared to 2022 due to cost savings and a different Products mix, partially offset by the weakness in foreign currencies relative to the U.S. dollar and decreased leverage."
     },
     {
       "id": "q2",
       "ticker": "AAPL",
       "filing_year": 2023,
-      "question": "PLACEHOLDER",
-      "expected_answer": "PLACEHOLDER",
+      "question": "What risk does Apple identify regarding the concentration of its manufacturing operations, and what controls does it have over outsourced production?",
+      "expected_answer": "Apple discloses that a significant portion of its manufacturing is performed by a small number of outsourcing partners, often in single locations. Changes to the supply chain require considerable time and resources. Apple has also outsourced much of its transportation and logistics management. While this lowers operating costs, it reduces direct control over production and distribution, which has from time to time adversely affected quality, quantity, or flexibility.",
       "source_section": "Item 1A",
-      "source_passage": "PLACEHOLDER"
+      "source_passage": "concentration of this manufacturing is currently performed by a small number of outsourcing partners, often in single locations. Changes or additions to the Company's supply chain require considerable time and resources and involve significant risks and uncertainties. The Company has also outsourced much of its transportation and logistics management. While these arrangements can lower operating costs, they also reduce the Company's direct control over production and distribution."
     },
     {
       "id": "q3",
       "ticker": "AAPL",
       "filing_year": 2022,
-      "question": "PLACEHOLDER",
-      "expected_answer": "PLACEHOLDER",
+      "question": "By how much did Apple's total net sales grow in FY2022 compared to FY2021, and what were the primary drivers?",
+      "expected_answer": "Apple's total net sales increased 8%, or $28.5 billion, in FY2022 compared to FY2021. Growth was driven primarily by higher net sales of iPhone, Services, and Mac. Foreign currency weakness had an unfavorable year-over-year impact on all Products and Services net sales.",
       "source_section": "Item 7",
-      "source_passage": "PLACEHOLDER"
+      "source_passage": "Total net sales increased 8% or $28.5 billion during 2022 compared to 2021, driven primarily by higher net sales of iPhone, Services and Mac. The weakness in foreign currencies relative to the U.S. dollar had an unfavorable year-over-year impact on all Products and Services net sales during 2022."
     },
     {
       "id": "q4",
       "ticker": "AAPL",
       "filing_year": 2023,
-      "question": "PLACEHOLDER",
-      "expected_answer": "PLACEHOLDER",
+      "question": "What was Apple's total deferred revenue as of the end of FY2023, and when does the company expect to recognize it?",
+      "expected_answer": "As of September 30, 2023, Apple had total deferred revenue of $12.1 billion, down from $12.4 billion as of September 24, 2022. The company expects 67% to be realized in less than a year, 25% within one-to-two years, 7% within two-to-three years, and 1% in greater than three years.",
       "source_section": "Item 8",
-      "source_passage": "PLACEHOLDER"
+      "source_passage": "As of September 30, 2023 and September 24, 2022, the Company had total deferred revenue of $ 12.1 billion and $ 12.4 billion, respectively. As of September 30, 2023, the Company expects 67 % of total deferred revenue to be realized in less than a year, 25 % within one-to-two years, 7 % within two-to-three years and 1 % in greater than three years."
     },
     {
       "id": "q5",
       "ticker": "AAPL",
       "filing_year": 2022,
-      "question": "PLACEHOLDER",
-      "expected_answer": "PLACEHOLDER",
+      "question": "How does Apple characterize the competitive landscape for its products and services in its FY2022 10-K?",
+      "expected_answer": "Apple characterizes its markets as highly competitive, with aggressive price competition putting downward pressure on gross margins, frequent introduction of new products and services, short product life cycles, evolving industry standards, and price sensitivity among consumers and businesses. Many competitors seek to compete through aggressive pricing, low cost structures, and by imitating Apple's products and infringing on its intellectual property.",
       "source_section": "Item 1",
-      "source_passage": "PLACEHOLDER"
+      "source_passage": "The markets for the Company's products and services are highly competitive, and are characterized by aggressive price competition and resulting downward pressure on gross margins, frequent introduction of new products and services, short product life cycles, evolving industry standards, continual improvement in product price and performance characteristics, rapid adoption of technological advancements by competitors, and price sensitivity on the part of consumers and businesses."
     }
   ]
 }
