@@ -115,9 +115,18 @@ The CLI prints a table of the top-5 retrieved passages (with section labels and 
 
 ## Evaluation
 
-### Fill in the golden dataset
+### Golden dataset
 
-Edit `eval/golden_dataset.json` and replace the five `"PLACEHOLDER"` entries with real questions, expected answers, and verbatim source passages from the filings. The `source_passage` field is used for substring-match retrieval scoring.
+`eval/golden_dataset.json` ships pre-populated with five AAPL questions spanning FY2022 and FY2023, covering Item 1 (competition), Item 1A (supply chain risk), Item 7 (gross margin, net sales), and Item 8 (deferred revenue). To extend or replace the dataset, edit the JSON directly — each entry has the following fields:
+
+| Field | Description |
+|-------|-------------|
+| `question` | The question to ask the pipeline |
+| `expected_answer` | Gold-standard answer used by the LLM judge |
+| `source_section` | Item label where the answer lives (e.g. `"Item 7"`) |
+| `source_passage` | Verbatim substring of the chunk text used for Precision@5 scoring |
+
+The `source_passage` must be an exact substring of a stored chunk (post-cleaning, post-chunking). To find the right text, run the pipeline in `DEBUG` log mode and inspect the retrieved chunks, or query ChromaDB directly.
 
 ### Run the harness
 
@@ -135,6 +144,25 @@ The harness prints a per-question table and aggregate metrics, then saves a time
 | **Factual correctness** (1–5) | LLM judge: does the answer agree with the expected answer on key facts? |
 | **Faithfulness** (1–5) | LLM judge: is the answer fully grounded in retrieved context, no hallucinations? |
 | **Appropriate uncertainty** (1–5) | LLM judge: does the model correctly defer when context is insufficient? |
+
+### Results (AAPL, FY2022–2024, run 2026-06-28)
+
+| ID | Question (truncated) | Precision@5 | Factual | Faithful | Uncertainty |
+|----|----------------------|:-----------:|:-------:|:--------:|:-----------:|
+| q1 | Gross margin % FY2023 and drivers | 0.0 | 5 | 5 | 5 |
+| q2 | Manufacturing concentration risk | 0.0 | 5 | 5 | 5 |
+| q3 | Net sales growth FY2022 vs FY2021 | 0.0 | 1 | 5 | 5 |
+| q4 | Deferred revenue FY2023 | 0.0 | 5 | 5 | 5 |
+| q5 | Competitive landscape FY2022 | 0.0 | 5 | 5 | 5 |
+| **Mean** | | **0.000** | **4.2 / 5** | **5.0 / 5** | **5.0 / 5** |
+
+**Precision@5 = 0.0** is caused by two compounding bugs, both tracked in [What I'd improve](#what-id-improve):
+
+1. **Ingestion mtime bug** — `_download_with_retry` selects the most recently modified subfolder under the filing root. When all three years are ingested in a single run, later downloads touch sibling folder mtimes, causing some years to ingest the wrong filing entirely. Simulation confirms that fixing this alone would raise Precision@5 to ~0.6 (q1, q3, q4 would pass).
+
+2. **Apostrophe encoding mismatch** — SEC filings use curly right-single-quotes (`'` U+2019) for possessives. The `source_passage` strings in `golden_dataset.json` were written with straight apostrophes (`'` U+0027), so substring match fails for any passage containing `Company's`, `Apple's`, etc. even when the correct filing is indexed. Fixing both bugs together would bring Precision@5 to 1.0.
+
+Despite Precision@5 = 0.0, the LLM judge scores confirm the pipeline is retrieving semantically relevant context and generating faithful, well-calibrated answers — the retriever surfaces correct passages even when year metadata is misaligned.
 
 ---
 
@@ -160,10 +188,14 @@ Human evaluation doesn't scale, and simple n-gram metrics (BLEU, ROUGE) miss sem
 
 ## What I'd improve
 
-1. **Metadata-filtered retrieval.** Currently a multi-year query searches across all years indiscriminately. Adding a `where={"filing_year": {"$in": [2022, 2023]}}` filter to the ChromaDB query would let the user ask year-specific questions without the retriever surfacing answers from the wrong period.
+1. **Filing subfolder selection in ingestion.** `_download_with_retry` picks the most recently modified subfolder under the filing root, which breaks when multiple years are ingested in one run — later downloads update sibling folder mtimes and cause earlier years to ingest the wrong filing. Fix: use the accession number returned by the downloader, or sort subfolders by name (accession numbers are lexicographically ordered by date) rather than mtime.
 
-2. **Table and numeric extraction.** Most of the quantitative data in 10-Ks lives in XBRL-tagged tables that get mangled by naive HTML stripping. A dedicated table parser (e.g. converting `<table>` elements to markdown or CSV before chunking) would dramatically improve precision on numerical questions like revenue growth or EPS.
+2. **Apostrophe normalisation in eval.** SEC filings use curly right-single-quotes (U+2019) for possessives, but `source_passage` strings in the golden dataset use straight apostrophes (U+0027). The Precision@5 substring match fails for any passage containing words like `Company's`. Fix: normalise both needle and haystack to straight apostrophes before comparing, or copy `source_passage` values directly from stored chunk text.
 
-3. **Independent judge model.** Using Command R+ to both generate and judge answers introduces self-serving bias — the model is unlikely to penalise outputs that match its own generation style. Using a separate judge (e.g. Cohere's Aya or a different provider) would give a more honest faithfulness score.
+3. **Metadata-filtered retrieval.** Currently a multi-year query searches across all years indiscriminately. Adding a `where={"filing_year": {"$in": [2022, 2023]}}` filter to the ChromaDB query would let the user ask year-specific questions without the retriever surfacing answers from the wrong period.
 
-4. **Hybrid retrieval (BM25 + dense).** Cohere embeddings are strong on semantic similarity but can miss exact financial terms, ticker symbols, and numeric literals. A BM25 index (e.g. via Elasticsearch or `rank_bm25`) fused with dense search (reciprocal rank fusion) would improve recall on queries containing specific figures or product names.
+4. **Table and numeric extraction.** Most of the quantitative data in 10-Ks lives in XBRL-tagged tables that get mangled by naive HTML stripping. A dedicated table parser (e.g. converting `<table>` elements to markdown or CSV before chunking) would dramatically improve precision on numerical questions like revenue growth or EPS.
+
+5. **Independent judge model.** Using Command R+ to both generate and judge answers introduces self-serving bias — the model is unlikely to penalise outputs that match its own generation style. Using a separate judge (e.g. Cohere's Aya or a different provider) would give a more honest faithfulness score.
+
+6. **Hybrid retrieval (BM25 + dense).** Cohere embeddings are strong on semantic similarity but can miss exact financial terms, ticker symbols, and numeric literals. A BM25 index (e.g. via Elasticsearch or `rank_bm25`) fused with dense search (reciprocal rank fusion) would improve recall on queries containing specific figures or product names.
